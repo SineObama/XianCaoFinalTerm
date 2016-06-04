@@ -9,6 +9,7 @@ USING_NS_CC;
 class GameScene : public cocos2d::Layer
 {
 public:
+
     void setPhysicsWorld(PhysicsWorld * world);
     // there's no 'id' in cpp, so we recommend returning the class instance pointer
     static cocos2d::Scene* createScene();
@@ -18,16 +19,23 @@ public:
 
     // implement the "static create()" method manually
     CREATE_FUNC(GameScene);
-    
+
 private:
+
+    static const int gap = 5;  // °åµ½µ×±ßµÄ¾àÀë
+    static const float plateSpeed;
+    static const float ballSpeed;
+    static const float ballMaxAngle;
+    static const float toRad;  // ½Ç¶È×ª»¡¶È
+
     Size visibleSize;
     Vec2 origin;
-    PhysicsMaterial material;
+    PhysicsMaterial elasticMaterial;
 
     TagDictionary *dic;
-    PhysicsWorld* m_world;
+    PhysicsWorld *m_world;
 
-    Sprite *ball, *plate;
+    Sprite *plate, *ball;
     Vector<Sprite*> bricks;
     Label *life, *score;
     int _life, _score;
@@ -35,23 +43,9 @@ private:
     bool pressA, pressD, pressLeft, pressRight;
     bool playing;
 
-    void preloadMusic();
-    void playBgm();
-
-    void addBackground();
-    void addEdge();
-    void addPlate();
-    void addBall();
-
-    void addKeyboardListener();
-    void addContactListener();
-
-    void onKeyPressed(EventKeyboard::KeyCode code, Event* event);
-    void onKeyReleased(EventKeyboard::KeyCode code, Event* event);
-    bool onConcactBegan(PhysicsContact& contact);
-
-    static const int gap = 10;  // °åµ½µ×±ßµÄ¾àÀë
-    static const int plateSpeed = 300;
+    void onKeyPressed(EventKeyboard::KeyCode, Event*);
+    void onKeyReleased(EventKeyboard::KeyCode, Event*);
+    bool onConcactBegan(PhysicsContact &);
 
     void update(float);
 
