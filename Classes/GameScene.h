@@ -30,18 +30,18 @@ private:
 
     Size visibleSize;
     Vec2 origin;
-    PhysicsMaterial elasticMaterial;
+    static PhysicsMaterial elasticMaterial;
 
-    TagDictionary *dic;
+    static TagDictionary *dic;
     PhysicsWorld *m_world;
 
     Sprite *plate, *ball;
     Vector<Node*> bricks;
     Label *life, *score;
-    int _life, _score;
+    int _life, _score, _damage;
 
     bool pressA, pressD, pressLeft, pressRight;
-    bool playing;
+    bool playing, through;
 
     void onKeyPressed(EventKeyboard::KeyCode, Event*);
     void onKeyReleased(EventKeyboard::KeyCode, Event*);
@@ -53,6 +53,8 @@ private:
 
     void die();
     void lose();
+
+    static Sprite *createBrick(const std::string &filename, int life);
 };
 
 #endif // __GAMESCENE_H__

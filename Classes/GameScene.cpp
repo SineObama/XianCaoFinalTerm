@@ -4,6 +4,7 @@
 #include "ui/CocosGUI.h"
 
 using namespace std;
+using namespace cocostudio;
 using namespace CocosDenshion;
 using namespace cocostudio::timeline;
 
@@ -15,6 +16,8 @@ const float GameScene::plateSpeed = 300;
 const float GameScene::ballSpeed = GameScene::plateSpeed * 1.0f;
 const float GameScene::ballMaxAngle = 60;
 const float GameScene::toRad = 3.1416f / 180;
+PhysicsMaterial GameScene::elasticMaterial;
+TagDictionary *GameScene::dic = NULL;
 
 Scene* GameScene::createScene()
 {
@@ -91,9 +94,9 @@ bool GameScene::init()
     plate = Sprite::create("plate.png");
     plate->setTag(dic->get("plate"));
     plate->setPosition(visibleSize.width / 2, gap + plate->getContentSize().height / 2);
-    auto plateBody = PhysicsBody::createBox(Size(100, 23), elasticMaterial);
+    auto plateBody = PhysicsBody::createBox(plate->getContentSize(), elasticMaterial);
     plateBody->setDynamic(false);
-    plateBody->setCategoryBitmask(1);
+    plateBody->setCategoryBitmask(7);
     plateBody->setCollisionBitmask(1);
     plateBody->setContactTestBitmask(1);
     plateBody->setAngularVelocityLimit(0);
@@ -111,6 +114,7 @@ bool GameScene::init()
     ballBody->setAngularVelocityLimit(0);
     ball->setPhysicsBody(ballBody);
     addChild(ball, 1);
+    ball->setSpriteFrame(SpriteFrame::create("brick.png", Rect(0, 0, 70, 21)));
 
     // 设置砖块
     int brickWidth = 70, brickHeight = 21;
@@ -118,16 +122,8 @@ bool GameScene::init()
     float sx = visibleSize.width / 2 - brickWidth * (m - 1) / 2, sy = 250;
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < m; j++) {
-            auto brick = Sprite::create("brick.png");
-            brick->setTag(dic->get("brick"));
+            auto brick = createBrick("brick.png", 1);
             brick->setPosition(sx + j * brickWidth, sy + i * brickHeight);
-            auto brickBody = PhysicsBody::createBox(Size(brickWidth, brickHeight), elasticMaterial);
-            brickBody->setDynamic(false);
-            brickBody->setCategoryBitmask(1);
-            brickBody->setCollisionBitmask(1);
-            brickBody->setContactTestBitmask(1);
-            brickBody->setAngularVelocityLimit(0);
-            brick->setPhysicsBody(brickBody);
             bricks.insert(bricks.size(), brick);
             this->addChild(brick, 1);
         }
@@ -145,6 +141,7 @@ bool GameScene::init()
     // 显示生命和得分
     _life = 3;
     _score = 0;
+    _damage = 1;
     auto lifel = Label::create("life:", "fonts/arial.ttf", 18);
     auto scorel = Label::create("score:", "fonts/arial.ttf", 18);
     char tem[10] = {};
@@ -163,6 +160,7 @@ bool GameScene::init()
 
     pressA = pressD = pressLeft = pressRight = false;
     playing = false;
+    through = true;
 
     scheduleUpdate();
 
@@ -219,7 +217,7 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
     Node *other;
     static int count = 0;
     count++;
-    // 碰撞体其一是球，可能是碰地,碰砖或者碰板
+    // 碰撞体其一是球，可能是碰地，碰砖或者碰板
     if (A == ball || B == ball) {
         other = A == ball ? B : A;
         int tag = other->getTag();
@@ -229,10 +227,20 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
             die();
         }
         else if (tag == dic->get("brick")) {  // 碰砖
-            bricks.eraseObject(other);
-            other->removeFromParentAndCleanup(1);
-            _score += 10;
-            refreshScore();
+            ComAttribute *com = dynamic_cast<ComAttribute *>(other->getComponent("brick"));
+            int life = com->getInt("life");
+            life -= _damage;
+            if (life <= 0) {
+                bricks.eraseObject(other);
+                other->removeFromParentAndCleanup(1);
+                _score += 10;
+                refreshScore();
+                if (through)
+                    return false;
+            }
+            else {
+                com->setInt("life", life);
+            }
         }
         else if (tag == dic->get("plate")) {  // 碰板，根据在碰撞的位置决定发射角度
             float pos = (plate->getPositionX() - ball->getPositionX()) / plate->getContentSize().width;  // -0.5~0.5
@@ -285,4 +293,21 @@ void GameScene::die() {
 
 void GameScene::lose() {
 
+}
+
+Sprite *GameScene::createBrick(const std::string &filename, int life) {
+    auto brick = Sprite::create("brick.png");
+    brick->setTag(dic->get("brick"));
+    auto brickBody = PhysicsBody::createBox(brick->getContentSize(), elasticMaterial);
+    brickBody->setDynamic(false);
+    brickBody->setCategoryBitmask(1);
+    brickBody->setCollisionBitmask(1);
+    brickBody->setContactTestBitmask(1);
+    brickBody->setAngularVelocityLimit(0);
+    brick->setPhysicsBody(brickBody);
+    auto attr = ComAttribute::create();
+    attr->setName("brick");
+    attr->setInt("life", 1);
+    brick->addComponent(attr);
+    return brick;
 }
