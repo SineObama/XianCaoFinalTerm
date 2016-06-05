@@ -12,7 +12,7 @@ USING_NS_CC;
 void GameScene::setPhysicsWorld(PhysicsWorld* world) { m_world = world; }
 
 const float GameScene::plateSpeed = 300;
-const float GameScene::ballSpeed = GameScene::plateSpeed * 1.2f;
+const float GameScene::ballSpeed = GameScene::plateSpeed * 1.0f;
 const float GameScene::ballMaxAngle = 60;
 const float GameScene::toRad = 3.1416f / 180;
 
@@ -46,6 +46,7 @@ bool GameScene::init()
     dic->add("edge");
     dic->add("brick");
     dic->add("bottom");
+    //dic->add("")
 
     // 预载音乐
     SimpleAudioEngine::getInstance()->preloadBackgroundMusic("music/bgm.mp3");
@@ -110,6 +111,27 @@ bool GameScene::init()
     ballBody->setAngularVelocityLimit(0);
     ball->setPhysicsBody(ballBody);
     addChild(ball, 1);
+
+    // 设置砖块
+    int brickWidth = 70, brickHeight = 21;
+    int m = visibleSize.width / brickWidth, n = visibleSize.height / 2 / brickHeight;
+    float sx = visibleSize.width / 2 - brickWidth * (m - 1) / 2, sy = 250;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            auto brick = Sprite::create("brick.png");
+            brick->setTag(dic->get("brick"));
+            brick->setPosition(sx + j * brickWidth, sy + i * brickHeight);
+            auto brickBody = PhysicsBody::createBox(Size(brickWidth, brickHeight), elasticMaterial);
+            brickBody->setDynamic(false);
+            brickBody->setCategoryBitmask(1);
+            brickBody->setCollisionBitmask(1);
+            brickBody->setContactTestBitmask(1);
+            brickBody->setAngularVelocityLimit(0);
+            brick->setPhysicsBody(brickBody);
+            bricks.insert(bricks.size(), brick);
+            this->addChild(brick, 1);
+        }
+    }
 
     // 添加键盘和碰撞事件
     auto keyboardListener = EventListenerKeyboard::create();
@@ -197,19 +219,8 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
     Node *other;
     static int count = 0;
     count++;
-    // 碰撞体其一是滑板，有可能是碰球或者碰道具
-    if (A == plate || B == plate) {
-        other = A == plate ? B : A;
-        int tag = other->getTag();
-        if (tag == dic->get("ball")) {  // 碰球
-            float pos = (plate->getPositionX() - ball->getPositionX()) / plate->getContentSize().width;  // -0.5~0.5
-            if (ball->getPositionY() >= plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2)
-                ball->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(0, 0), (pos * ballMaxAngle * 2 + 90) * toRad) * ballSpeed);
-        }
-        // todo 碰道具
-    }
-    // 碰撞体其一是球，可能是碰地或者碰砖
-    else if (A == ball || B == ball) {
+    // 碰撞体其一是球，可能是碰地,碰砖或者碰板
+    if (A == ball || B == ball) {
         other = A == ball ? B : A;
         int tag = other->getTag();
         if (tag == dic->get("bottom")) {  // 碰地
@@ -218,7 +229,22 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
             die();
         }
         else if (tag == dic->get("brick")) {  // 碰砖
+            bricks.eraseObject(other);
+            other->removeFromParentAndCleanup(1);
+            _score += 10;
+            refreshScore();
         }
+        else if (tag == dic->get("plate")) {  // 碰板，根据在碰撞的位置决定发射角度
+            float pos = (plate->getPositionX() - ball->getPositionX()) / plate->getContentSize().width;  // -0.5~0.5
+            if (ball->getPositionX() <= plate->getPositionX() + plate->getContentSize().width / 2 && ball->getPositionX() >= plate->getPositionX() - plate->getContentSize().width / 2)
+                ball->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(0, 0), (pos * ballMaxAngle * 2 + 90) * toRad) * ballSpeed);
+        }
+    }
+    // 碰撞体其一是滑板，有可能是碰道具
+    else if (A == plate || B == plate) {
+        other = A == plate ? B : A;
+        int tag = other->getTag();
+        // todo 碰道具
     }
     return true;
 }
@@ -229,10 +255,23 @@ void GameScene::update(float time) {
         direction--;
     if (pressD | pressRight)
         direction++;
-    if (direction)
-        plate->setPosition(plate->getPosition() + Vec2(direction, 0) * plateSpeed * time);
+    if (direction) {
+        Vec2 newPos = plate->getPosition() + Vec2(direction, 0) * plateSpeed * time;
+        float halfWidth = plate->getContentSize().width / 2;
+        if (newPos.x > visibleSize.width - halfWidth)
+            newPos.x = visibleSize.width - halfWidth;
+        else if (newPos.x < halfWidth)
+            newPos.x = halfWidth;
+        plate->setPosition(newPos);
+    }
     if (!playing)
         ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
+}
+
+void GameScene::refreshScore() {
+    char s[10] = {};
+    sprintf(s, "%d", _score);
+    score->setString(s);
 }
 
 void GameScene::die() {

@@ -36,7 +36,7 @@ private:
     PhysicsWorld *m_world;
 
     Sprite *plate, *ball;
-    Vector<Sprite*> bricks;
+    Vector<Node*> bricks;
     Label *life, *score;
     int _life, _score;
 
@@ -48,6 +48,8 @@ private:
     bool onConcactBegan(PhysicsContact &);
 
     void update(float);
+
+    void refreshScore();
 
     void die();
     void lose();
