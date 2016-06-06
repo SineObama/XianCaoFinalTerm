@@ -2,6 +2,7 @@
 #include "cocostudio/CocoStudio.h"
 #include "SimpleAudioEngine.h"
 #include "ui/CocosGUI.h"
+#include <cmath>
 
 using namespace std;
 using namespace cocostudio;
@@ -10,14 +11,14 @@ using namespace cocostudio::timeline;
 
 USING_NS_CC;
 
-void GameScene::setPhysicsWorld(PhysicsWorld* world) { m_world = world; }
-
 const float GameScene::plateSpeed = 300;
 const float GameScene::ballSpeed = GameScene::plateSpeed * 1.0f;
 const float GameScene::ballMaxAngle = 60;
-const float GameScene::toRad = 3.1416f / 180;
-PhysicsMaterial GameScene::elasticMaterial;
-TagDictionary *GameScene::dic = NULL;
+const float GameScene::toRad = 3.141592f / 180;
+const float GameScene::toAngle = 180 / 3.1416f;
+PhysicsMaterial GameScene::elasticMaterial(0, 1, 0);
+
+void GameScene::setPhysicsWorld(PhysicsWorld* world) { m_world = world; }
 
 Scene* GameScene::createScene()
 {
@@ -32,7 +33,6 @@ Scene* GameScene::createScene()
     return scene;
 }
 
-// on "init" you need to initialize your instance
 bool GameScene::init()
 {
     if (!Layer::init())
@@ -40,16 +40,6 @@ bool GameScene::init()
 
     visibleSize = Director::getInstance()->getVisibleSize();
     origin = Director::getInstance()->getVisibleOrigin();
-    elasticMaterial.restitution = 1;
-    elasticMaterial.friction = 0;
-
-    dic = TagDictionary::getInstance();
-    dic->add("ball");
-    dic->add("plate");
-    dic->add("edge");
-    dic->add("brick");
-    dic->add("bottom");
-    //dic->add("")
 
     // 预载音乐
     SimpleAudioEngine::getInstance()->preloadBackgroundMusic("music/bgm.mp3");
@@ -71,16 +61,16 @@ bool GameScene::init()
 
     // 添加边界
     auto bound = Sprite::create();
-    bound->setTag(dic->get("edge"));
+    bound->setName("bound");
     bound->setPosition(Point(visibleSize.width / 2, visibleSize.height / 2));
     auto boundBody = PhysicsBody::createEdgeBox(visibleSize, elasticMaterial);
     boundBody->setDynamic(false);
     bound->setPhysicsBody(boundBody);
     this->addChild(bound);
 
-    // 添加底部边界，用于检测球落地
-    auto bottom = Sprite::create();
-    bottom->setTag(dic->get("bottom"));
+    // 添加底部边界，用于检测落地
+    bottom = Sprite::create();
+    bottom->setName("bottom");
     bottom->setPosition(Point(visibleSize.width / 2, gap / 2));
     auto bottomBody = PhysicsBody::createBox(Size(visibleSize.width, gap));
     bottomBody->setDynamic(false);
@@ -92,8 +82,7 @@ bool GameScene::init()
 
     // 设置滑板
     plate = Sprite::create("plate.png");
-    plate->setTag(dic->get("plate"));
-    plate->setPosition(visibleSize.width / 2, gap + plate->getContentSize().height / 2);
+    plate->setName("plate");
     auto plateBody = PhysicsBody::createBox(plate->getContentSize(), elasticMaterial);
     plateBody->setDynamic(false);
     plateBody->setCategoryBitmask(7);
@@ -105,8 +94,7 @@ bool GameScene::init()
 
     // 设置球
     ball = Sprite::create("ball.png");
-    ball->setTag(dic->get("ball"));
-    ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
+    ball->setName("ball");
     auto ballBody = PhysicsBody::createCircle(13, elasticMaterial);
     ballBody->setCategoryBitmask(1);
     ballBody->setCollisionBitmask(1);
@@ -114,20 +102,10 @@ bool GameScene::init()
     ballBody->setAngularVelocityLimit(0);
     ball->setPhysicsBody(ballBody);
     addChild(ball, 1);
-    ball->setSpriteFrame(SpriteFrame::create("brick.png", Rect(0, 0, 70, 21)));
 
-    // 设置砖块
-    int brickWidth = 70, brickHeight = 21;
-    int m = visibleSize.width / brickWidth, n = visibleSize.height / 2 / brickHeight;
-    float sx = visibleSize.width / 2 - brickWidth * (m - 1) / 2, sy = 250;
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < m; j++) {
-            auto brick = createBrick("brick.png", 1);
-            brick->setPosition(sx + j * brickWidth, sy + i * brickHeight);
-            bricks.insert(bricks.size(), brick);
-            this->addChild(brick, 1);
-        }
-    }
+    // 设置砖块根节点
+    brickRoot = Node::create();
+    this->addChild(brickRoot);
 
     // 添加键盘和碰撞事件
     auto keyboardListener = EventListenerKeyboard::create();
@@ -136,31 +114,37 @@ bool GameScene::init()
     _eventDispatcher->addEventListenerWithSceneGraphPriority(keyboardListener, this);
     auto contactListener = EventListenerPhysicsContact::create();
     contactListener->onContactBegin = CC_CALLBACK_1(GameScene::onConcactBegan, this);
+    contactListener->onContactSeparate = CC_CALLBACK_1(GameScene::onContactSeparate, this);
     _eventDispatcher->addEventListenerWithFixedPriority(contactListener, 1);
 
     // 显示生命和得分
     _life = 3;
     _score = 0;
     _damage = 1;
+    _level = 0;
+    auto levell = Label::create("level:", "fonts/arial.ttf", 18);
     auto lifel = Label::create("life:", "fonts/arial.ttf", 18);
     auto scorel = Label::create("score:", "fonts/arial.ttf", 18);
-    char tem[10] = {};
-    sprintf(tem, "%d", _life);
-    life = Label::create(tem, "fonts/arial.ttf", 18);
+    char s[10] = {};
+    sprintf(s, "%d", _life);
+    level = Label::create("0", "fonts/arial.ttf", 18);
+    life = Label::create(s, "fonts/arial.ttf", 18);
     score = Label::create("0", "fonts/arial.ttf", 18);
     int width = 50, height = 15;
-    lifel->setPosition(visibleSize - Size(width * 2, height));
-    scorel->setPosition(visibleSize - Size(width * 2, height * 2));
-    life->setPosition(visibleSize - Size(width, height));
-    score->setPosition(visibleSize - Size(width, height * 2));
+    levell->setPosition(visibleSize - Size(width * 2, height));
+    lifel->setPosition(visibleSize - Size(width * 2, height * 2));
+    scorel->setPosition(visibleSize - Size(width * 2, height * 3));
+    level->setPosition(visibleSize - Size(width, height));
+    life->setPosition(visibleSize - Size(width, height * 2));
+    score->setPosition(visibleSize - Size(width, height * 3));
+    this->addChild(levell, 2);
     this->addChild(lifel, 2);
     this->addChild(scorel, 2);
+    this->addChild(level, 2);
     this->addChild(life, 2);
     this->addChild(score, 2);
 
-    pressA = pressD = pressLeft = pressRight = false;
-    playing = false;
-    through = true;
+    nextLevel();
 
     scheduleUpdate();
 
@@ -182,10 +166,14 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
     case cocos2d::EventKeyboard::KeyCode::KEY_D:
         pressD = true;
         break;
+    case cocos2d::EventKeyboard::KeyCode::KEY_B:
+        nextLevel();
+        break;
     case cocos2d::EventKeyboard::KeyCode::KEY_SPACE:
-        if (!playing) {
+        // 空格发射
+        if (!launched) {
             ball->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(), random(90 - ballMaxAngle, 90 + ballMaxAngle) * toRad) * ballSpeed);
-            playing = true;
+            launched = true;
         }
         break;
     }
@@ -215,26 +203,38 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
     if (A == NULL || B == NULL)
         return true;
     Node *other;
-    static int count = 0;
-    count++;
     // 碰撞体其一是球，可能是碰地，碰砖或者碰板
     if (A == ball || B == ball) {
         other = A == ball ? B : A;
-        int tag = other->getTag();
-        if (tag == dic->get("bottom")) {  // 碰地
+        auto name = other->getName();
+        if (name == "bottom") {  // 碰地
             ball->getPhysicsBody()->setVelocity(Vec2());
-            playing = false;
-            die();
+
+            if (_life <= 0)
+                lose();
+            else {
+                launched = false;
+                // 扣血
+                _life--;
+                char s[10] = {};
+                sprintf(s, "%d", _life);
+                life->setString(s);
+            }
         }
-        else if (tag == dic->get("brick")) {  // 碰砖
+        else if (name == "brick") {  // 碰砖
             ComAttribute *com = dynamic_cast<ComAttribute *>(other->getComponent("brick"));
             int life = com->getInt("life");
             life -= _damage;
             if (life <= 0) {
-                bricks.eraseObject(other);
+                // 加分
+                _score += com->getInt("score");
+                char s[10] = {};
+                sprintf(s, "%d", _score);
+                score->setString(s);
+
                 other->removeFromParentAndCleanup(1);
-                _score += 10;
-                refreshScore();
+                if (brickRoot->getChildrenCount() == 0)
+                    nextLevel();
                 if (through)
                     return false;
             }
@@ -242,53 +242,181 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
                 com->setInt("life", life);
             }
         }
-        else if (tag == dic->get("plate")) {  // 碰板，根据在碰撞的位置决定发射角度
+        else if (name == "plate") {  // 碰板
+            // 根据在碰撞的位置决定发射角度
             float pos = (plate->getPositionX() - ball->getPositionX()) / plate->getContentSize().width;  // -0.5~0.5
-            if (ball->getPositionX() <= plate->getPositionX() + plate->getContentSize().width / 2 && ball->getPositionX() >= plate->getPositionX() - plate->getContentSize().width / 2)
-                ball->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(0, 0), (pos * ballMaxAngle * 2 + 90) * toRad) * ballSpeed);
+            if (ball->getPositionX() <= plate->getPositionX() + plate->getContentSize().width / 2 && ball->getPositionX() >= plate->getPositionX() - plate->getContentSize().width / 2) {
+                float degree = (pos * ballMaxAngle * 2 + 90) * toRad;
+                Vec2 v = Vec2(1, 0).rotateByAngle(Vec2(0, 0), degree) * ballSpeed;
+                ball->getPhysicsBody()->setVelocity(v);
+            }
         }
     }
     // 碰撞体其一是滑板，有可能是碰道具
     else if (A == plate || B == plate) {
         other = A == plate ? B : A;
-        int tag = other->getTag();
+        auto name = other->getName();
         // todo 碰道具
+    }
+    // 碰撞体其一是底部，只剩下道具的情况
+    else if (A == bottom || B == bottom) {
+        other = A == bottom ? B : A;
+        other->removeFromParentAndCleanup(1);
+    }
+    return true;
+}
+
+// 碰撞后检查球的角度，避免近似平行的移动
+bool GameScene::onContactSeparate(PhysicsContact &contact) {
+    if (!launched)
+        return true;
+    auto A = contact.getShapeA()->getBody()->getNode();
+    auto B = contact.getShapeB()->getBody()->getNode();
+    if (A == ball || B == ball) {
+        auto v = ball->getPhysicsBody()->getVelocity();
+        int x = (v.x > 0 ? 1 : -1), y = (v.y > 0 ? 1 : -1);
+        v.x *= x;
+        v.y *= y;
+        auto angle = v.getAngle() * toAngle;
+        if (90 - angle > ballMaxAngle) {
+            v = Vec2(1, 0).rotateByAngle(Vec2(), ballMaxAngle * toRad) * ballSpeed;
+            v.x *= x;
+            v.y *= y;
+            ball->getPhysicsBody()->setVelocity(v);
+        }
     }
     return true;
 }
 
 void GameScene::update(float time) {
+    // 实现板的移动
     int direction = 0;
     if (pressA | pressLeft)
         direction--;
     if (pressD | pressRight)
         direction++;
     if (direction) {
-        Vec2 newPos = plate->getPosition() + Vec2(direction, 0) * plateSpeed * time;
+        float newX = plate->getPositionX() + direction * plateSpeed * time;
         float halfWidth = plate->getContentSize().width / 2;
-        if (newPos.x > visibleSize.width - halfWidth)
-            newPos.x = visibleSize.width - halfWidth;
-        else if (newPos.x < halfWidth)
-            newPos.x = halfWidth;
-        plate->setPosition(newPos);
+        if (newX > visibleSize.width - halfWidth)
+            newX = visibleSize.width - halfWidth;
+        else if (newX < halfWidth)
+            newX = halfWidth;
+        plate->setPositionX(newX);
     }
-    if (!playing)
+
+    // 实现未发射时球随板移动
+    if (!launched)
         ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
 }
 
-void GameScene::refreshScore() {
-    char s[10] = {};
-    sprintf(s, "%d", _score);
-    score->setString(s);
+void GameScene::nextLevel() {
+    // 定义砖块布局。0没有，1普通砖，2打两次才消灭的，9打不烂的
+    static const int maxLevel = 2, col = 13, row = 23;
+    static const int map[maxLevel + 10][row][col] = {
+        {},
+        {
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,1,0,0,0,0,0,0 },
+            { 0,0,0,0,0,1,1,1,0,0,0,0,0 },
+            { 0,0,0,0,1,1,1,1,1,0,0,0,0 },
+            { 0,0,0,1,1,1,1,1,1,1,0,0,0 },
+            { 0,0,1,1,1,1,1,1,1,1,1,0,0 },
+            { 0,1,1,1,1,1,1,1,1,1,1,1,0 },
+            { 0,0,1,1,1,1,1,1,1,1,1,0,0 },
+            { 0,0,0,1,1,1,1,1,1,1,0,0,0 },
+            { 0,0,0,0,1,1,1,1,1,0,0,0,0 },
+            { 0,0,0,0,0,1,1,1,0,0,0,0,0 },
+            { 0,0,0,0,0,0,1,0,0,0,0,0,0 },
+        },
+        {
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 2,0,2,0,2,0,2,0,2,0,2,0,2 },
+            { 0,2,0,2,0,2,0,2,0,2,0,2,0 },
+            { 2,0,2,0,2,0,2,0,2,0,2,0,2 },
+            { 0,2,0,2,0,2,0,2,0,2,0,2,0 },
+            { 2,0,2,0,2,0,2,0,2,0,2,0,2 },
+            { 0,2,0,2,0,2,0,2,0,2,0,2,0 },
+            { 2,0,2,0,2,0,2,0,2,0,2,0,2 },
+        },
+    };
+
+    brickRoot->removeAllChildren();
+    _level++;
+    if (_level > maxLevel)
+        win();
+    else {
+        char s[10] = {};
+        sprintf(s, "%d", _level);
+        level->setString(s);
+        pressA = pressD = pressLeft = pressRight = false;
+        launched = false;
+        through = false;
+        ball->getPhysicsBody()->setVelocity(Vec2());
+        ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
+        plate->setPosition(visibleSize.width / 2, gap + plate->getContentSize().height / 2);
+        int brickWidth = 70, brickHeight = 21;
+        float sx = visibleSize.width / 2 - brickWidth * (col - 1) / 2, sy = 550;
+        for (int i = 0; i < row; i++) {
+            for (int j = 0; j < col; j++) {
+                Sprite *brick;
+                switch (map[_level][i][j]) {
+                case 0: continue;
+                case 1: brick = createBrick("brick.png", 1); break;
+                case 2: brick = createBrick("brick2.png", 2); break;
+                case 9: brick = createBrick("brick999.png", 1 << 30); break;
+                }
+                brick->setPosition(sx + j * brickWidth, sy - i * brickHeight);
+                brickRoot->addChild(brick, 1);
+            }
+        }
+        // 方法二：每关用特定规则创建
+        //switch (_level)
+        //{
+        //case 1:
+        //    for (int i = 0; i < row; i++) {
+        //        for (int j = 0; j < col; j++) {
+        //            if (i + j < (row + 1) / 2 || i + j >(row + 1) / 2 + col - 3)
+        //                continue;
+        //            auto brick = createBrick("brick.png", 1);
+        //            brick->setPosition(sx + j * brickWidth, sy - i * brickHeight);
+        //            brickRoot->addChild(brick, 1);
+        //        }
+        //    }
+        //    break;
+        //case 2:
+        //    for (int i = 0; i < row; i++) {
+        //        for (int j = 0; j < col; j++) {
+        //            if ((i * col + j) % 2)
+        //                continue;
+        //            auto brick = createBrick("brick2.png", 2);
+        //            brick->setPosition(sx + j * brickWidth, sy - i * brickHeight);
+        //            brickRoot->addChild(brick, 1);
+        //        }
+        //    }
+        //    break;
+        //case 3:
+        //    break;
+        //case 4:
+        //    break;
+        //case 5:
+        //    break;
+        //}
+    }
 }
 
-void GameScene::die() {
-    _life--;
-    char s[10] = {};
-    sprintf(s, "%d", _life);
-    life->setString(s);
-    if (!_life)
-        lose();
+void GameScene::win() {
+
 }
 
 void GameScene::lose() {
@@ -296,8 +424,8 @@ void GameScene::lose() {
 }
 
 Sprite *GameScene::createBrick(const std::string &filename, int life) {
-    auto brick = Sprite::create("brick.png");
-    brick->setTag(dic->get("brick"));
+    auto brick = Sprite::create(filename);
+    brick->setName("brick");
     auto brickBody = PhysicsBody::createBox(brick->getContentSize(), elasticMaterial);
     brickBody->setDynamic(false);
     brickBody->setCategoryBitmask(1);
@@ -307,7 +435,8 @@ Sprite *GameScene::createBrick(const std::string &filename, int life) {
     brick->setPhysicsBody(brickBody);
     auto attr = ComAttribute::create();
     attr->setName("brick");
-    attr->setInt("life", 1);
+    attr->setInt("life", life);
+    attr->setInt("score", life * 10);
     brick->addComponent(attr);
     return brick;
 }

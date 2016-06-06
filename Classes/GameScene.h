@@ -2,7 +2,6 @@
 #define __GAMESCENE_H__
 
 #include "cocos2d.h"
-#include "TagDictionary.h"
 
 USING_NS_CC;
 
@@ -27,31 +26,32 @@ private:
     static const float ballSpeed;
     static const float ballMaxAngle;
     static const float toRad;  // 角度转弧度
+    static const float toAngle;  // 弧度转角度
 
     Size visibleSize;
     Vec2 origin;
     static PhysicsMaterial elasticMaterial;
 
-    static TagDictionary *dic;
     PhysicsWorld *m_world;
 
-    Sprite *plate, *ball;
-    Vector<Node*> bricks;
-    Label *life, *score;
-    int _life, _score, _damage;
+    Sprite *bottom, *plate, *ball;
+    Node *brickRoot;
+    Label *life, *score, *level;
+    int _life, _score, _damage, _level;
 
+    // 游戏状态
     bool pressA, pressD, pressLeft, pressRight;
-    bool playing, through;
+    bool launched, through;
 
     void onKeyPressed(EventKeyboard::KeyCode, Event*);
     void onKeyReleased(EventKeyboard::KeyCode, Event*);
     bool onConcactBegan(PhysicsContact &);
+    bool onContactSeparate(PhysicsContact &);
 
     void update(float);
 
-    void refreshScore();
-
-    void die();
+    void nextLevel();
+    void win();
     void lose();
 
     static Sprite *createBrick(const std::string &filename, int life);
