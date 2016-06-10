@@ -9,7 +9,6 @@ class GameScene : public cocos2d::Layer
 {
 public:
 
-    void setPhysicsWorld(PhysicsWorld * world);
     // there's no 'id' in cpp, so we recommend returning the class instance pointer
     static cocos2d::Scene* createScene();
 
@@ -23,21 +22,31 @@ private:
 
     static const int gap = 5;  // 板到底边的距离
     static const float plateSpeed;
-    static const float ballSpeed;
+    static const float toolBaseSpeed;
     static const float ballMaxAngle;
+    static const float toolAverageRefreshTime;
+    static const float throughDuration;
     static const float toRad;  // 角度转弧度
     static const float toAngle;  // 弧度转角度
+
+    static const int boundBit = 1 << 0;
+    static const int bottomBit = 1 << 1;
+    static const int plateBit = 1 << 2;
+    static const int ballBit = 1 << 3;
+    static const int brickBit = 1 << 4;
+    static const int toolBit = 1 << 5;
 
     Size visibleSize;
     Vec2 origin;
     static PhysicsMaterial elasticMaterial;
 
-    PhysicsWorld *m_world;
+    PhysicsWorld *physicsWorld;
 
     Sprite *bottom, *plate, *ball;
     Node *brickRoot;
     Label *life, *score, *level;
     int _life, _score, _damage, _level;
+    float ballSpeed;
 
     // 游戏状态
     bool pressA, pressD, pressLeft, pressRight;
@@ -49,12 +58,15 @@ private:
     bool onContactSeparate(PhysicsContact &);
 
     void update(float);
+    void randomCreateTools(float);
+    void endThrough(float);
 
     void nextLevel();
     void win();
     void lose();
 
     static Sprite *createBrick(const std::string &filename, int life);
+    static void setLabel(Label *, int);
 };
 
 #endif // __GAMESCENE_H__

@@ -12,13 +12,13 @@ using namespace cocostudio::timeline;
 USING_NS_CC;
 
 const float GameScene::plateSpeed = 300;
-const float GameScene::ballSpeed = GameScene::plateSpeed * 1.0f;
+const float GameScene::toolBaseSpeed = 200;
 const float GameScene::ballMaxAngle = 60;
+const float GameScene::toolAverageRefreshTime = 2;
+const float GameScene::throughDuration = 10;
 const float GameScene::toRad = 3.141592f / 180;
 const float GameScene::toAngle = 180 / 3.1416f;
 PhysicsMaterial GameScene::elasticMaterial(0, 1, 0);
-
-void GameScene::setPhysicsWorld(PhysicsWorld* world) { m_world = world; }
 
 Scene* GameScene::createScene()
 {
@@ -27,7 +27,7 @@ Scene* GameScene::createScene()
     scene->getPhysicsWorld()->setGravity(Point(0, 0));
 
     auto layer = GameScene::create();
-    layer->setPhysicsWorld(scene->getPhysicsWorld());
+    layer->physicsWorld = scene->getPhysicsWorld();
 
     scene->addChild(layer);
     return scene;
@@ -62,9 +62,12 @@ bool GameScene::init()
     // 添加边界
     auto bound = Sprite::create();
     bound->setName("bound");
-    bound->setPosition(Point(visibleSize.width / 2, visibleSize.height / 2));
+    bound->setPosition(visibleSize / 2);
     auto boundBody = PhysicsBody::createEdgeBox(visibleSize, elasticMaterial);
     boundBody->setDynamic(false);
+    boundBody->setCategoryBitmask(boundBit);
+    boundBody->setCollisionBitmask(ballBit);
+    boundBody->setContactTestBitmask(ballBit);
     bound->setPhysicsBody(boundBody);
     this->addChild(bound);
 
@@ -74,9 +77,9 @@ bool GameScene::init()
     bottom->setPosition(Point(visibleSize.width / 2, gap / 2));
     auto bottomBody = PhysicsBody::createBox(Size(visibleSize.width, gap));
     bottomBody->setDynamic(false);
-    bottomBody->setCategoryBitmask(1);
-    bottomBody->setCollisionBitmask(1);
-    bottomBody->setContactTestBitmask(1);
+    bottomBody->setCategoryBitmask(bottomBit);
+    bottomBody->setCollisionBitmask(ballBit | toolBit);
+    bottomBody->setContactTestBitmask(ballBit | toolBit);
     bottom->setPhysicsBody(bottomBody);
     this->addChild(bottom);
 
@@ -85,10 +88,9 @@ bool GameScene::init()
     plate->setName("plate");
     auto plateBody = PhysicsBody::createBox(plate->getContentSize(), elasticMaterial);
     plateBody->setDynamic(false);
-    plateBody->setCategoryBitmask(7);
-    plateBody->setCollisionBitmask(1);
-    plateBody->setContactTestBitmask(1);
-    plateBody->setAngularVelocityLimit(0);
+    plateBody->setCategoryBitmask(plateBit);
+    plateBody->setCollisionBitmask(ballBit | toolBit);
+    plateBody->setContactTestBitmask(ballBit | toolBit);
     plate->setPhysicsBody(plateBody);
     addChild(plate, 1);
 
@@ -96,9 +98,9 @@ bool GameScene::init()
     ball = Sprite::create("ball.png");
     ball->setName("ball");
     auto ballBody = PhysicsBody::createCircle(13, elasticMaterial);
-    ballBody->setCategoryBitmask(1);
-    ballBody->setCollisionBitmask(1);
-    ballBody->setContactTestBitmask(1);
+    ballBody->setCategoryBitmask(ballBit);
+    ballBody->setCollisionBitmask(0xffffffff & ~toolBit);
+    ballBody->setContactTestBitmask(0xffffffff & ~toolBit);
     ballBody->setAngularVelocityLimit(0);
     ball->setPhysicsBody(ballBody);
     addChild(ball, 1);
@@ -147,6 +149,7 @@ bool GameScene::init()
     nextLevel();
 
     scheduleUpdate();
+    schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
 
     return true;
 }
@@ -166,7 +169,7 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
     case cocos2d::EventKeyboard::KeyCode::KEY_D:
         pressD = true;
         break;
-    case cocos2d::EventKeyboard::KeyCode::KEY_B:
+    case cocos2d::EventKeyboard::KeyCode::KEY_B:// 用于调试：进入下一关
         nextLevel();
         break;
     case cocos2d::EventKeyboard::KeyCode::KEY_SPACE:
@@ -209,16 +212,12 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
         auto name = other->getName();
         if (name == "bottom") {  // 碰地
             ball->getPhysicsBody()->setVelocity(Vec2());
-
             if (_life <= 0)
                 lose();
             else {
                 launched = false;
                 // 扣血
-                _life--;
-                char s[10] = {};
-                sprintf(s, "%d", _life);
-                life->setString(s);
+                setLabel(life, --_life);
             }
         }
         else if (name == "brick") {  // 碰砖
@@ -228,9 +227,7 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
             if (life <= 0) {
                 // 加分
                 _score += com->getInt("score");
-                char s[10] = {};
-                sprintf(s, "%d", _score);
-                score->setString(s);
+                setLabel(score, _score);
 
                 other->removeFromParentAndCleanup(1);
                 if (brickRoot->getChildrenCount() == 0)
@@ -252,11 +249,23 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
             }
         }
     }
-    // 碰撞体其一是滑板，有可能是碰道具
+    // 碰撞体其一是滑板，碰道具
     else if (A == plate || B == plate) {
         other = A == plate ? B : A;
         auto name = other->getName();
-        // todo 碰道具
+        if (name == "addLife") {
+            setLabel(life, ++_life);
+        }
+        else if (name == "through") {
+            // 穿透实现方法：增加撞击伤害并设置击毁后直行
+            through = true;
+            _damage = 10;
+            scheduleOnce(schedule_selector(GameScene::endThrough), throughDuration);
+        }
+        else if (name == "multi") {
+
+        }
+        other->removeFromParentAndCleanup(1);
     }
     // 碰撞体其一是底部，只剩下道具的情况
     else if (A == bottom || B == bottom) {
@@ -288,7 +297,7 @@ bool GameScene::onContactSeparate(PhysicsContact &contact) {
     return true;
 }
 
-void GameScene::update(float time) {
+void GameScene::update(float deltaTime) {
     // 实现板的移动
     int direction = 0;
     if (pressA | pressLeft)
@@ -296,7 +305,7 @@ void GameScene::update(float time) {
     if (pressD | pressRight)
         direction++;
     if (direction) {
-        float newX = plate->getPositionX() + direction * plateSpeed * time;
+        float newX = plate->getPositionX() + direction * plateSpeed * deltaTime;
         float halfWidth = plate->getContentSize().width / 2;
         if (newX > visibleSize.width - halfWidth)
             newX = visibleSize.width - halfWidth;
@@ -308,6 +317,41 @@ void GameScene::update(float time) {
     // 实现未发射时球随板移动
     if (!launched)
         ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
+}
+
+void GameScene::randomCreateTools(float deltaTime) {
+    if (random(0.0f, toolAverageRefreshTime / deltaTime) <= 1) {
+        Sprite *tool;
+        switch (random(1, 3)) {
+        case 1:
+            tool = Sprite::create("addLife.png");
+            tool->setName("addLife");
+            break;
+        case 2:
+            tool = Sprite::create("through.png");
+            tool->setName("through");
+            break;
+        case 3:
+            tool = Sprite::create("multi.png");
+            tool->setName("multi");
+            break;
+        }
+        auto size = tool->getContentSize();
+        tool->setPosition(random(size.width / 2, visibleSize.width - size.width / 2), visibleSize.height - size.height / 2);
+        auto toolBody = PhysicsBody::createBox(size, elasticMaterial);
+        toolBody->setGroup(-1);
+        toolBody->setCategoryBitmask(toolBit);
+        toolBody->setCollisionBitmask(bottomBit | plateBit);
+        toolBody->setContactTestBitmask(bottomBit | plateBit);
+        toolBody->setVelocity(Vec2(0, -random(1.0f, 1.5f) * toolBaseSpeed));
+        tool->setPhysicsBody(toolBody);
+        this->addChild(tool, 2);
+    }
+}
+
+void GameScene::endThrough(float) {
+    through = false;
+    _damage = 1;
 }
 
 void GameScene::nextLevel() {
@@ -356,13 +400,14 @@ void GameScene::nextLevel() {
     if (_level > maxLevel)
         win();
     else {
-        char s[10] = {};
-        sprintf(s, "%d", _level);
-        level->setString(s);
+        unschedule(schedule_selector(GameScene::endThrough));
+        setLabel(level, _level);
         pressA = pressD = pressLeft = pressRight = false;
+        _damage = 1;
         launched = false;
         through = false;
         ball->getPhysicsBody()->setVelocity(Vec2());
+        ballSpeed = plateSpeed * (1 + 0.1f * _level);
         ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
         plate->setPosition(visibleSize.width / 2, gap + plate->getContentSize().height / 2);
         int brickWidth = 70, brickHeight = 21;
@@ -428,9 +473,9 @@ Sprite *GameScene::createBrick(const std::string &filename, int life) {
     brick->setName("brick");
     auto brickBody = PhysicsBody::createBox(brick->getContentSize(), elasticMaterial);
     brickBody->setDynamic(false);
-    brickBody->setCategoryBitmask(1);
-    brickBody->setCollisionBitmask(1);
-    brickBody->setContactTestBitmask(1);
+    brickBody->setCategoryBitmask(brickBit);
+    brickBody->setCollisionBitmask(ballBit);
+    brickBody->setContactTestBitmask(ballBit);
     brickBody->setAngularVelocityLimit(0);
     brick->setPhysicsBody(brickBody);
     auto attr = ComAttribute::create();
@@ -439,4 +484,10 @@ Sprite *GameScene::createBrick(const std::string &filename, int life) {
     attr->setInt("score", life * 10);
     brick->addComponent(attr);
     return brick;
+}
+
+void GameScene::setLabel(Label *label, int num) {
+    char s[10] = {};
+    sprintf(s, "%d", num);
+    label->setString(s);
 }
