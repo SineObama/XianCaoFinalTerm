@@ -95,15 +95,9 @@ bool GameScene::init()
     addChild(plate, 1);
 
     // 设置球
-    ball = Sprite::create("ball.png");
-    ball->setName("ball");
-    auto ballBody = PhysicsBody::createCircle(13, elasticMaterial);
-    ballBody->setCategoryBitmask(ballBit);
-    ballBody->setCollisionBitmask(0xffffffff & ~toolBit);
-    ballBody->setContactTestBitmask(0xffffffff & ~toolBit);
-    ballBody->setAngularVelocityLimit(0);
-    ball->setPhysicsBody(ballBody);
-    addChild(ball, 1);
+    ballRoot = Node::create();
+    this->addChild(ballRoot, 1);
+    ballRoot->addChild(createBall());
 
     // 设置砖块根节点
     brickRoot = Node::create();
@@ -149,7 +143,6 @@ bool GameScene::init()
     nextLevel();
 
     scheduleUpdate();
-    schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
 
     return true;
 }
@@ -175,7 +168,8 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
     case cocos2d::EventKeyboard::KeyCode::KEY_SPACE:
         // 空格发射
         if (!launched) {
-            ball->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(), random(90 - ballMaxAngle, 90 + ballMaxAngle) * toRad) * ballSpeed);
+            ballRoot->getChildByName("ball")->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(), random(90 - ballMaxAngle, 90 + ballMaxAngle) * toRad) * ballSpeed);
+            schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
             launched = true;
         }
         break;
@@ -205,19 +199,30 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
     auto B = contact.getShapeB()->getBody()->getNode();
     if (A == NULL || B == NULL)
         return true;
-    Node *other;
+    auto An = A->getName();
+    auto Bn = B->getName();
+    Node *ball, *other;
     // 碰撞体其一是球，可能是碰地，碰砖或者碰板
-    if (A == ball || B == ball) {
-        other = A == ball ? B : A;
+    if (An == "ball" || Bn == "ball") {
+        if (An == "ball")
+            ball = A, other = B;
+        else
+            ball = B, other = A;
         auto name = other->getName();
         if (name == "bottom") {  // 碰地
-            ball->getPhysicsBody()->setVelocity(Vec2());
-            if (_life <= 0)
-                lose();
+            if (ballRoot->getChildrenCount() > 1) {
+                ball->removeFromParentAndCleanup(1);
+            }
             else {
-                launched = false;
-                // 扣血
-                setLabel(life, --_life);
+                ball->getPhysicsBody()->setVelocity(Vec2());
+                if (_life <= 0)
+                    lose();
+                else {
+                    unschedule(schedule_selector(GameScene::randomCreateTools));
+                    launched = false;
+                    // 扣血
+                    setLabel(life, --_life);
+                }
             }
         }
         else if (name == "brick") {  // 碰砖
@@ -250,8 +255,8 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
         }
     }
     // 碰撞体其一是滑板，碰道具
-    else if (A == plate || B == plate) {
-        other = A == plate ? B : A;
+    else if (An == "plate" || Bn == "plate") {
+        other = An == "plate" ? B : A;
         auto name = other->getName();
         if (name == "addLife") {
             setLabel(life, ++_life);
@@ -260,16 +265,25 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
             // 穿透实现方法：增加撞击伤害并设置击毁后直行
             through = true;
             _damage = 10;
+            unschedule(schedule_selector(GameScene::endThrough));
             scheduleOnce(schedule_selector(GameScene::endThrough), throughDuration);
         }
         else if (name == "multi") {
-
+            if (launched) {
+                auto ball = createBall();
+                auto sball = ballRoot->getChildByName("ball");
+                ball->setPosition(sball->getPosition());
+                auto vec = sball->getPhysicsBody()->getVelocity();
+                vec.x *= -1;
+                ball->getPhysicsBody()->setVelocity(vec);
+                ballRoot->addChild(ball);
+            }
         }
         other->removeFromParentAndCleanup(1);
     }
     // 碰撞体其一是底部，只剩下道具的情况
-    else if (A == bottom || B == bottom) {
-        other = A == bottom ? B : A;
+    else if (An == "bottom" || Bn == "bottom") {
+        other = An == "bottom" ? B : A;
         other->removeFromParentAndCleanup(1);
     }
     return true;
@@ -281,14 +295,18 @@ bool GameScene::onContactSeparate(PhysicsContact &contact) {
         return true;
     auto A = contact.getShapeA()->getBody()->getNode();
     auto B = contact.getShapeB()->getBody()->getNode();
-    if (A == ball || B == ball) {
+    if (A == NULL || B == NULL)
+        return true;
+    if (A->getName() == "ball" || B->getName() == "ball") {
+        auto ball = A->getName() == "ball" ? A : B;
         auto v = ball->getPhysicsBody()->getVelocity();
         int x = (v.x > 0 ? 1 : -1), y = (v.y > 0 ? 1 : -1);
         v.x *= x;
         v.y *= y;
         auto angle = v.getAngle() * toAngle;
         if (90 - angle > ballMaxAngle) {
-            v = Vec2(1, 0).rotateByAngle(Vec2(), ballMaxAngle * toRad) * ballSpeed;
+            //v = Vec2(1, 0).rotateByAngle(Vec2(), ballMaxAngle * toRad) * ballSpeed;
+            v = v.rotateByAngle(Vec2(), 5 * toRad);
             v.x *= x;
             v.y *= y;
             ball->getPhysicsBody()->setVelocity(v);
@@ -316,7 +334,7 @@ void GameScene::update(float deltaTime) {
 
     // 实现未发射时球随板移动
     if (!launched)
-        ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
+        ballRoot->getChildByName("ball")->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ballRoot->getChildByName("ball")->getContentSize().height / 2);
 }
 
 void GameScene::randomCreateTools(float deltaTime) {
@@ -356,9 +374,26 @@ void GameScene::endThrough(float) {
 
 void GameScene::nextLevel() {
     // 定义砖块布局。0没有，1普通砖，2打两次才消灭的，9打不烂的
-    static const int maxLevel = 2, col = 13, row = 23;
+    static const int maxLevel = 5, col = 13, row = 23;
     static const int map[maxLevel + 10][row][col] = {
         {},
+        {
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,1,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
+        },
         {
             { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
             { 0,0,0,0,0,0,0,0,0,0,0,0,0 },
@@ -400,12 +435,19 @@ void GameScene::nextLevel() {
     if (_level > maxLevel)
         win();
     else {
+        unschedule(schedule_selector(GameScene::randomCreateTools));
         unschedule(schedule_selector(GameScene::endThrough));
         setLabel(level, _level);
         pressA = pressD = pressLeft = pressRight = false;
         _damage = 1;
         launched = false;
         through = false;
+        auto v = ballRoot->getChildren();
+        while (v.size() > 1) {
+            v.at(1)->removeFromParentAndCleanup(1);
+            v.erase(1);
+        }
+        auto ball = v.at(0);
         ball->getPhysicsBody()->setVelocity(Vec2());
         ballSpeed = plateSpeed * (1 + 0.1f * _level);
         ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
@@ -484,6 +526,18 @@ Sprite *GameScene::createBrick(const std::string &filename, int life) {
     attr->setInt("score", life * 10);
     brick->addComponent(attr);
     return brick;
+}
+
+Sprite *GameScene::createBall() {
+    auto ball = Sprite::create("ball.png");
+    ball->setName("ball");
+    auto ballBody = PhysicsBody::createCircle(13, elasticMaterial);
+    ballBody->setCategoryBitmask(ballBit);
+    ballBody->setCollisionBitmask(0xffffffff & ~toolBit & ~ballBit);
+    ballBody->setContactTestBitmask(0xffffffff & ~toolBit & ~ballBit);
+    ballBody->setAngularVelocityLimit(0);
+    ball->setPhysicsBody(ballBody);
+    return ball;
 }
 
 void GameScene::setLabel(Label *label, int num) {

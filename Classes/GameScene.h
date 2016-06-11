@@ -42,8 +42,8 @@ private:
 
     PhysicsWorld *physicsWorld;
 
-    Sprite *bottom, *plate, *ball;
-    Node *brickRoot;
+    Sprite *bottom, *plate;
+    Node *ballRoot, *brickRoot;
     Label *life, *score, *level;
     int _life, _score, _damage, _level;
     float ballSpeed;
@@ -66,6 +66,7 @@ private:
     void lose();
 
     static Sprite *createBrick(const std::string &filename, int life);
+    static Sprite *createBall();
     static void setLabel(Label *, int);
 };
 
