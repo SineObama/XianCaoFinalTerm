@@ -46,7 +46,7 @@ bool GameScene::init()
     //SimpleAudioEngine::getInstance()->preloadEffect("music/meet_stone.wav");
 
     // 循环播放背景音乐
-    SimpleAudioEngine::getInstance()->playBackgroundMusic("music/bgm.mp3", true);
+    //SimpleAudioEngine::getInstance()->playBackgroundMusic("music/bgm.mp3", true);
 
     // 设置背景图片
     auto bgsprite = Sprite::create("bg.jpg");
@@ -162,6 +162,9 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
     case cocos2d::EventKeyboard::KeyCode::KEY_D:
         pressD = true;
         break;
+    case cocos2d::EventKeyboard::KeyCode::KEY_C:
+        nextLevel();
+        break;
     case cocos2d::EventKeyboard::KeyCode::KEY_B:// 用于调试：进入下一关
         nextLevel();
         break;
@@ -169,7 +172,7 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
         // 空格发射
         if (!launched) {
             ballRoot->getChildByName("ball")->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(), random(90 - ballMaxAngle, 90 + ballMaxAngle) * toRad) * ballSpeed);
-            schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
+            //schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
             launched = true;
         }
         break;
@@ -306,7 +309,7 @@ bool GameScene::onContactSeparate(PhysicsContact &contact) {
         auto angle = v.getAngle() * toAngle;
         if (90 - angle > ballMaxAngle) {
             //v = Vec2(1, 0).rotateByAngle(Vec2(), ballMaxAngle * toRad) * ballSpeed;
-            v = v.rotateByAngle(Vec2(), 5 * toRad);
+            v = Vec2(1, 0).rotateByAngle(Vec2(), (angle + 5) * toRad) * ballSpeed;
             v.x *= x;
             v.y *= y;
             ball->getPhysicsBody()->setVelocity(v);
@@ -467,38 +470,6 @@ void GameScene::nextLevel() {
                 brickRoot->addChild(brick, 1);
             }
         }
-        // 方法二：每关用特定规则创建
-        //switch (_level)
-        //{
-        //case 1:
-        //    for (int i = 0; i < row; i++) {
-        //        for (int j = 0; j < col; j++) {
-        //            if (i + j < (row + 1) / 2 || i + j >(row + 1) / 2 + col - 3)
-        //                continue;
-        //            auto brick = createBrick("brick.png", 1);
-        //            brick->setPosition(sx + j * brickWidth, sy - i * brickHeight);
-        //            brickRoot->addChild(brick, 1);
-        //        }
-        //    }
-        //    break;
-        //case 2:
-        //    for (int i = 0; i < row; i++) {
-        //        for (int j = 0; j < col; j++) {
-        //            if ((i * col + j) % 2)
-        //                continue;
-        //            auto brick = createBrick("brick2.png", 2);
-        //            brick->setPosition(sx + j * brickWidth, sy - i * brickHeight);
-        //            brickRoot->addChild(brick, 1);
-        //        }
-        //    }
-        //    break;
-        //case 3:
-        //    break;
-        //case 4:
-        //    break;
-        //case 5:
-        //    break;
-        //}
     }
 }
 
