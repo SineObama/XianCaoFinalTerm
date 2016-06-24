@@ -61,6 +61,7 @@ private:
     void randomCreateTools(float);
     void endThrough(float);
 
+    void scheduleNextLevel(float);
     void nextLevel();
     void win();
     void lose();

@@ -163,7 +163,6 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
         pressD = true;
         break;
     case cocos2d::EventKeyboard::KeyCode::KEY_C:
-        nextLevel();
         break;
     case cocos2d::EventKeyboard::KeyCode::KEY_B:// 用于调试：进入下一关
         nextLevel();
@@ -172,7 +171,7 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
         // 空格发射
         if (!launched) {
             ballRoot->getChildByName("ball")->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(), random(90 - ballMaxAngle, 90 + ballMaxAngle) * toRad) * ballSpeed);
-            //schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
+            schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
             launched = true;
         }
         break;
@@ -239,7 +238,7 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
 
                 other->removeFromParentAndCleanup(1);
                 if (brickRoot->getChildrenCount() == 0)
-                    nextLevel();
+                    scheduleOnce(schedule_selector(GameScene::scheduleNextLevel, this), 0);
                 if (through)
                     return false;
             }
@@ -300,8 +299,8 @@ bool GameScene::onContactSeparate(PhysicsContact &contact) {
     auto B = contact.getShapeB()->getBody()->getNode();
     if (A == NULL || B == NULL)
         return true;
-    if (A->getName() == "ball" || B->getName() == "ball") {
-        auto ball = A->getName() == "ball" ? A : B;
+    auto ball = A->getName() == "ball" ? A : B;
+    if (ball->getName() == "ball") {
         auto v = ball->getPhysicsBody()->getVelocity();
         int x = (v.x > 0 ? 1 : -1), y = (v.y > 0 ? 1 : -1);
         v.x *= x;
@@ -373,6 +372,10 @@ void GameScene::randomCreateTools(float deltaTime) {
 void GameScene::endThrough(float) {
     through = false;
     _damage = 1;
+}
+
+void GameScene::scheduleNextLevel(float) {
+    nextLevel();
 }
 
 void GameScene::nextLevel() {
@@ -455,8 +458,8 @@ void GameScene::nextLevel() {
         ballSpeed = plateSpeed * (1 + 0.1f * _level);
         ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
         plate->setPosition(visibleSize.width / 2, gap + plate->getContentSize().height / 2);
-        int brickWidth = 70, brickHeight = 21;
-        float sx = visibleSize.width / 2 - brickWidth * (col - 1) / 2, sy = 550;
+        static const int brickWidth = 70, brickHeight = 21;
+        static const float sx = visibleSize.width / 2 - brickWidth * (col - 1) / 2, sy = 550;
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < col; j++) {
                 Sprite *brick;
