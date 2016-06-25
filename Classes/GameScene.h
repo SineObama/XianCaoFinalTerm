@@ -67,7 +67,7 @@ private:
     void win();
     void lose();
 
-    static Sprite *createBrick(const std::string &filename, int life);
+    static Sprite *createBrick(const std::string &filename, int life, const Color3B &);
     static Sprite *createBall();
     static void setLabel(Label *, int);
 };
