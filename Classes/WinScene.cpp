@@ -30,7 +30,7 @@ bool WinScene::init()
 	Size visibleSize = Director::getInstance()->getVisibleSize();
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
-	auto winbp = Sprite::create("winbp.jpg");
+	auto winbp = Sprite::create("bg/winbp.jpg");
 	winbp->setPosition(Vec2(visibleSize.width / 2 + origin.x, visibleSize.height / 2 + origin.y));
 	this->addChild(winbp, 0);
 

@@ -43,15 +43,14 @@ bool GameScene::init()
     visibleSize = Director::getInstance()->getVisibleSize();
     origin = Director::getInstance()->getVisibleOrigin();
 
-    // Ô¤ÔØÒôÀÖ
-    SimpleAudioEngine::getInstance()->preloadBackgroundMusic("music/bgm.mp3");
-    //SimpleAudioEngine::getInstance()->preloadEffect("music/meet_stone.wav");
-
-    // Ñ­»·²¥·Å±³¾°ÒôÀÖ
-    //SimpleAudioEngine::getInstance()->playBackgroundMusic("music/bgm.mp3", true);
+    // Ô¤ÔØÒôÐ§
+	SimpleAudioEngine::getInstance()->preloadEffect("effect/chidaoju.wav");
+	SimpleAudioEngine::getInstance()->preloadEffect("effect/dead.wav");
+	SimpleAudioEngine::getInstance()->preloadEffect("effect/faqiu.wav");
+    SimpleAudioEngine::getInstance()->preloadEffect("effect/jizhong.wav");
 
     // ÉèÖÃ±³¾°Í¼Æ¬
-    auto bgsprite = Sprite::create("bg.jpg");
+    auto bgsprite = Sprite::create("bg/bg.jpg");
     bgsprite->setPosition(visibleSize / 2);
     bgsprite->setScale(visibleSize.width / bgsprite->getContentSize().width, visibleSize.height / bgsprite->getContentSize().height);
     this->addChild(bgsprite, 0);
@@ -86,7 +85,7 @@ bool GameScene::init()
     this->addChild(bottom);
 
     // ÉèÖÃ»¬°å
-    plate = Sprite::create("plate.png");
+    plate = Sprite::create("sprite/plate.png");
     plate->setName("plate");
     auto plateBody = PhysicsBody::createBox(plate->getContentSize(), elasticMaterial);
     plateBody->setDynamic(false);
@@ -113,7 +112,7 @@ bool GameScene::init()
     auto contactListener = EventListenerPhysicsContact::create();
     contactListener->onContactBegin = CC_CALLBACK_1(GameScene::onConcactBegan, this);
     contactListener->onContactSeparate = CC_CALLBACK_1(GameScene::onContactSeparate, this);
-    _eventDispatcher->addEventListenerWithFixedPriority(contactListener, 1);
+    _eventDispatcher->addEventListenerWithSceneGraphPriority(contactListener, this);
 
     // ÏÔÊ¾ÉúÃüºÍµÃ·Ö
     _life = 3;
@@ -172,6 +171,7 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode code, Event* event) {
     case cocos2d::EventKeyboard::KeyCode::KEY_SPACE:
         // ¿Õ¸ñ·¢Éä
         if (!launched) {
+			SimpleAudioEngine::getInstance()->playEffect("effect/faqiu.wav");
             ballRoot->getChildByName("ball")->getPhysicsBody()->setVelocity(Vec2(1, 0).rotateByAngle(Vec2(), random(90 - ballMaxAngle, 90 + ballMaxAngle) * toRad) * ballSpeed);
             schedule(schedule_selector(GameScene::randomCreateTools), 0.2f);
             launched = true;
@@ -222,6 +222,7 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
                 if (_life <= 0)
                     lose();
                 else {
+					SimpleAudioEngine::getInstance()->playEffect("effect/dead.wav");
                     unschedule(schedule_selector(GameScene::randomCreateTools));
                     launched = false;
                     // ¿ÛÑª
@@ -230,6 +231,7 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
             }
         }
         else if (name == "brick") {  // Åö×©
+			SimpleAudioEngine::getInstance()->playEffect("effect/jizhong.wav");
             ComAttribute *com = dynamic_cast<ComAttribute *>(other->getComponent("brick"));
             int life = com->getInt("life");
             life -= _damage;
@@ -262,6 +264,7 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
     else if (An == "plate" || Bn == "plate") {
         other = An == "plate" ? B : A;
         auto name = other->getName();
+		SimpleAudioEngine::getInstance()->playEffect("effect/chidaoju.wav");
         if (name == "addLife") {
             setLabel(life, ++_life);
         }
@@ -346,15 +349,15 @@ void GameScene::randomCreateTools(float deltaTime) {
         Sprite *tool;
         switch (random(1, 3)) {
         case 1:
-            tool = Sprite::create("addLife.png");
+            tool = Sprite::create("sprite/addLife.png");
             tool->setName("addLife");
             break;
         case 2:
-            tool = Sprite::create("through.png");
+            tool = Sprite::create("sprite/through.png");
             tool->setName("through");
             break;
         case 3:
-            tool = Sprite::create("multi.png");
+            tool = Sprite::create("sprite/multi.png");
             tool->setName("multi");
             break;
         }
@@ -466,9 +469,9 @@ void GameScene::nextLevel() {
                 Sprite *brick;
                 switch (map[_level][i][j]) {
                 case 0: continue;
-                case 1: brick = createBrick("brick.png", 1); break;
-                case 2: brick = createBrick("brick2.png", 2); break;
-                case 9: brick = createBrick("brick999.png", 1 << 30); break;
+                case 1: brick = createBrick("sprite/brick.png", 1); break;
+                case 2: brick = createBrick("sprite/brick2.png", 2); break;
+                case 9: brick = createBrick("sprite/brick999.png", 1 << 30); break;
                 }
                 brick->setPosition(sx + j * brickWidth, sy - i * brickHeight);
                 brickRoot->addChild(brick, 1);
@@ -478,6 +481,8 @@ void GameScene::nextLevel() {
 }
 
 void GameScene::win() {
+	unscheduleUpdate();
+	this->removeAllChildrenWithCleanup(1);
 	auto gamescene = WinScene::createScene();
 	Director::getInstance()->replaceScene(TransitionFade::create(0.5, gamescene, Color3B(0, 0, 0)));
 }

@@ -30,7 +30,7 @@ bool LoseScene::init()
 	Size visibleSize = Director::getInstance()->getVisibleSize();
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
-	auto losebp = Sprite::create("losebp.jpg");
+	auto losebp = Sprite::create("bg/losebp.jpg");
 	losebp->setPosition(Vec2(visibleSize.width / 2 + origin.x + 250, visibleSize.height / 2 + origin.y + 150));
 	this->addChild(losebp, 0);
 
