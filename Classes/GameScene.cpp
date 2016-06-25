@@ -214,21 +214,21 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
 			ball = B, other = A;
 		auto name = other->getName();
 		if (name == "bottom") {  // ÅöµØ
-			if (ballRoot->getChildrenCount() > 1) {
-				ball->removeFromParentAndCleanup(1);
-			}
-			else {
-				ball->getPhysicsBody()->setVelocity(Vec2());
-				if (_life <= 0)
-					lose();
-				else {
-					SimpleAudioEngine::getInstance()->playEffect("effect/dead.wav");
-					unschedule(schedule_selector(GameScene::randomCreateTools));
-					launched = false;
-					// ¿ÛÑª
-					setLabel(life, --_life);
-				}
-			}
+			//if (ballRoot->getChildrenCount() > 1) {
+			//	ball->removeFromParentAndCleanup(1);
+			//}
+			//else {
+			//	ball->getPhysicsBody()->setVelocity(Vec2());
+			//	if (_life <= 0)
+			//		lose();
+			//	else {
+			//		SimpleAudioEngine::getInstance()->playEffect("effect/dead.wav");
+			//		unschedule(schedule_selector(GameScene::randomCreateTools));
+			//		launched = false;
+			//		// ¿ÛÑª
+			//		setLabel(life, --_life);
+			//	}
+			//}
 		}
 		else if (name == "brick") {  // Åö×©
 			SimpleAudioEngine::getInstance()->playEffect("effect/jizhong.wav");
@@ -276,15 +276,8 @@ bool GameScene::onConcactBegan(PhysicsContact& contact) {
 			scheduleOnce(schedule_selector(GameScene::endThrough), throughDuration);
 		}
 		else if (name == "multi") {
-			if (launched) {
-				auto ball = createBall();
-				auto sball = ballRoot->getChildByName("ball");
-				ball->setPosition(sball->getPosition());
-				auto vec = sball->getPhysicsBody()->getVelocity();
-				vec.x *= -1;
-				ball->getPhysicsBody()->setVelocity(vec);
-				ballRoot->addChild(ball);
-			}
+			if (launched)
+				scheduleOnce(schedule_selector(GameScene::scheduleDivide), 0);
 		}
 		other->removeFromParentAndCleanup(1);
 	}
@@ -349,13 +342,13 @@ void GameScene::randomCreateTools(float deltaTime) {
 		Sprite *tool;
 		switch (random(1, 3)) {
 		case 1:
-			tool = Sprite::create("sprite/addLife.png");
-			tool->setName("addLife");
-			break;
+			//tool = Sprite::create("sprite/addLife.png");
+			//tool->setName("addLife");
+			//break;
 		case 2:
-			tool = Sprite::create("sprite/through.png");
-			tool->setName("through");
-			break;
+			//tool = Sprite::create("sprite/through.png");
+			//tool->setName("through");
+			//break;
 		case 3:
 			tool = Sprite::create("sprite/multi.png");
 			tool->setName("multi");
@@ -377,6 +370,16 @@ void GameScene::randomCreateTools(float deltaTime) {
 void GameScene::endThrough(float) {
 	through = false;
 	_damage = 1;
+}
+
+void GameScene::scheduleDivide(float) {
+	auto ball = createBall();
+	auto sball = ballRoot->getChildByName("ball");
+	ball->setPosition(sball->getPosition());
+	auto vec = sball->getPhysicsBody()->getVelocity();
+	vec.x *= -1;
+	ball->getPhysicsBody()->setVelocity(vec);
+	ballRoot->addChild(ball);
 }
 
 void GameScene::scheduleNextLevel(float) {
@@ -464,15 +467,13 @@ void GameScene::nextLevel() {
 }
 
 void GameScene::win() {
-	unscheduleUpdate();
-	this->removeAllChildrenWithCleanup(1);
 	auto gamescene = WinScene::createScene();
 	Director::getInstance()->replaceScene(TransitionFade::create(0.5, gamescene, Color3B(0, 0, 0)));
 }
 
 void GameScene::lose() {
-	auto gamescene = LoseScene::createScene();
-	Director::getInstance()->replaceScene(TransitionFade::create(0.5, gamescene, Color3B(0, 0, 0)));
+	//auto gamescene = LoseScene::createScene();
+	//Director::getInstance()->replaceScene(TransitionFade::create(0.5, gamescene, Color3B(0, 0, 0)));
 }
 
 Sprite *GameScene::createBrick(const std::string &filename, int life, const Color3B &color) {
