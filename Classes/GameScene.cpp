@@ -1,4 +1,6 @@
 #include "GameScene.h"
+#include "LoseScene.h"
+#include "WinScene.h"
 #include "cocostudio/CocoStudio.h"
 #include "SimpleAudioEngine.h"
 #include "ui/CocosGUI.h"
@@ -23,7 +25,7 @@ PhysicsMaterial GameScene::elasticMaterial(0, 1, 0);
 Scene* GameScene::createScene()
 {
     auto scene = Scene::createWithPhysics();
-    scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
+    //scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
     scene->getPhysicsWorld()->setGravity(Point(0, 0));
 
     auto layer = GameScene::create();
@@ -458,7 +460,6 @@ void GameScene::nextLevel() {
         ballSpeed = plateSpeed * (1 + 0.1f * _level);
         ball->setPosition(plate->getPositionX(), plate->getPositionY() + plate->getContentSize().height / 2 + ball->getContentSize().height / 2);
         plate->setPosition(visibleSize.width / 2, gap + plate->getContentSize().height / 2);
-        static const int brickWidth = 70, brickHeight = 21;
         static const float sx = visibleSize.width / 2 - brickWidth * (col - 1) / 2, sy = 550;
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < col; j++) {
@@ -477,16 +478,21 @@ void GameScene::nextLevel() {
 }
 
 void GameScene::win() {
-
+	auto gamescene = WinScene::createScene();
+	Director::getInstance()->replaceScene(TransitionFade::create(0.5, gamescene, Color3B(0, 0, 0)));
 }
 
 void GameScene::lose() {
-
+	auto gamescene = LoseScene::createScene();
+	Director::getInstance()->replaceScene(TransitionFade::create(0.5, gamescene, Color3B(0, 0, 0)));
 }
 
 Sprite *GameScene::createBrick(const std::string &filename, int life) {
     auto brick = Sprite::create(filename);
     brick->setName("brick");
+	brick->setColor(Color3B(0,0,255));
+	brick->setScale(brickWidth / brick->getContentSize().width, brickHeight / brick->getContentSize().height);
+	brick->setContentSize(Size(brickWidth, brickHeight));
     auto brickBody = PhysicsBody::createBox(brick->getContentSize(), elasticMaterial);
     brickBody->setDynamic(false);
     brickBody->setCategoryBitmask(brickBit);

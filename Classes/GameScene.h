@@ -28,6 +28,7 @@ private:
     static const float throughDuration;
     static const float toRad;  // 角度转弧度
     static const float toAngle;  // 弧度转角度
+	static const int brickWidth = 70, brickHeight = 21;
 
     static const int boundBit = 1 << 0;
     static const int bottomBit = 1 << 1;
