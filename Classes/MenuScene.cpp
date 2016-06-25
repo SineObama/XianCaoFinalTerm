@@ -37,7 +37,7 @@ bool MenuScene::init()
 	Size visibleSize = Director::getInstance()->getVisibleSize();
 	Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
-	auto bp = Sprite::create("bg/bp.jpg");
+	auto bp = Sprite::create("bg/menubp.jpg");
 	bp->setPosition(Vec2(visibleSize.width / 2 + origin.x + 250, visibleSize.height / 2 + origin.y + 150));
 	this->addChild(bp, 0);
 

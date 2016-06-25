@@ -50,7 +50,7 @@ bool GameScene::init()
 	SimpleAudioEngine::getInstance()->preloadEffect("effect/jizhong.wav");
 
 	// ÉèÖÃ±³¾°Í¼Æ¬
-	auto bgsprite = Sprite::create("bg/bg.jpg");
+	auto bgsprite = Sprite::create("bg/gamebp.jpg");
 	bgsprite->setPosition(visibleSize / 2);
 	bgsprite->setScale(visibleSize.width / bgsprite->getContentSize().width, visibleSize.height / bgsprite->getContentSize().height);
 	this->addChild(bgsprite, 0);
