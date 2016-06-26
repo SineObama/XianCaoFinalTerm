@@ -19,9 +19,11 @@ USING_NS_CC;
 #define CHEAT
 
 const float GameScene::plateSpeed = 300;
+const Size GameScene::ballSize(30, 30);
 const float GameScene::ballBaseSpeed = 250;
 const float GameScene::ballSpeedGrowth = 0.05f;
 const float GameScene::ballMaxAngle = 60;
+const Size GameScene::toolSize(30, 30);
 const float GameScene::toolBaseSpeed = 250;
 const float GameScene::toolSpeedFluctuation = 0.2;
 const float GameScene::toolAverageRefreshTime = 1;
@@ -359,20 +361,22 @@ void GameScene::randomCreateTools(float deltaTime) {
         Sprite *tool;
         switch (random(1, 3)) {
         case 1:
-            tool = Sprite::create("sprite/addLife.png");
+            tool = Sprite::create("sprite/addLife.jpg");
             tool->setName("addLife");
             break;
         case 2:
-            tool = Sprite::create("sprite/through.png");
+            tool = Sprite::create("sprite/through.jpg");
             tool->setName("through");
             break;
         case 3:
-            tool = Sprite::create("sprite/multi.png");
+            tool = Sprite::create("sprite/multi.jpg");
             tool->setName("multi");
             break;
         }
         auto size = tool->getContentSize();
-        tool->setPosition(random(size.width / 2, visibleSize.width - size.width / 2), visibleSize.height - size.height / 2);
+        tool->setScale(toolSize.width / size.width, toolSize.height / size.height);
+        auto size2 = tool->getContentSize();
+        tool->setPosition(random(toolSize.width / 2, visibleSize.width - toolSize.width / 2), visibleSize.height - toolSize.height / 2);
         auto toolBody = PhysicsBody::createBox(size, elasticMaterial);
         toolBody->setGroup(-1);
         toolBody->setCategoryBitmask(toolBit);
@@ -606,8 +610,9 @@ Sprite *GameScene::createBrick(const std::string &filename, int life, const Colo
 }
 
 Sprite *GameScene::createBall() {
-    auto ball = Sprite::create("ball.png");
+    auto ball = Sprite::create("sprite/ball.jpg");
     ball->setName("ball");
+    ball->setScale(ballSize.width / ball->getContentSize().width, ballSize.height / ball->getContentSize().height);
     auto ballBody = PhysicsBody::createCircle(13, elasticMaterial);
     ballBody->setCategoryBitmask(ballBit);
     ballBody->setCollisionBitmask(0xffffffff & ~toolBit & ~ballBit);

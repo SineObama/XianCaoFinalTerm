@@ -22,9 +22,11 @@ private:
 
     static const int gap = 5;  // °åµ½µ×±ßµÄ¾àÀë
     static const float plateSpeed;
+    static const Size ballSize;
     static const float ballBaseSpeed;
     static const float ballSpeedGrowth;
     static const float ballMaxAngle;
+    static const Size toolSize;
     static const float toolBaseSpeed;
     static const float toolSpeedFluctuation;
     static const float toolAverageRefreshTime;
