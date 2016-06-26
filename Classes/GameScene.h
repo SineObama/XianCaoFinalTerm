@@ -18,6 +18,8 @@ public:
     // implement the "static create()" method manually
     CREATE_FUNC(GameScene);
 
+    static int totalScore;
+
 private:
 
     static const int gap = 5;  // °åµ½µ×±ßµÄ¾àÀë

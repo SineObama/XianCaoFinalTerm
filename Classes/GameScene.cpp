@@ -18,6 +18,8 @@ USING_NS_CC;
 //#define CANT_LOSE
 #define CHEAT
 
+int GameScene::totalScore = 0;
+
 const float GameScene::plateSpeed = 300;
 const Size GameScene::ballSize(30, 30);
 const float GameScene::ballBaseSpeed = 250;
@@ -584,6 +586,7 @@ void GameScene::win() {
 
 void GameScene::lose() {
 #ifndef CANT_LOSE
+    totalScore = _score;
     auto gamescene = LoseScene::createScene();
     Director::getInstance()->replaceScene(TransitionFade::create(0.5, gamescene, Color3B(0, 0, 0)));
 #endif // !CANT_LOSE

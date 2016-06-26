@@ -38,6 +38,12 @@ bool LoseScene::init()
     title->setPosition(Vec2(visibleSize.width / 2 + origin.x, visibleSize.height / 2 + origin.y + 200));
     this->addChild(title, 1);
 
+    char s[100] = {};
+    sprintf(s, "your score: %d", GameScene::totalScore);
+    auto score = Label::createWithTTF(s, "fonts/Marker Felt.ttf", 50);
+    score->setPosition(Vec2(visibleSize.width / 2 + origin.x, visibleSize.height / 2 + origin.y + 120));
+    this->addChild(score, 1);
+
     auto Restart = Label::createWithTTF("Try again", "fonts/Marker Felt.ttf", 80);
 
     auto RestartItem = MenuItemLabel::create(Restart, CC_CALLBACK_1(LoseScene::ChangeScene, this));
