@@ -15,7 +15,7 @@ public:
     // implement the "static create()" method manually
     CREATE_FUNC(WinScene);
 
-	void ChangeScene(Ref *);
+    void ChangeScene(Ref *);
 };
 
 #endif // __HELLOWORLD_SCENE_H__

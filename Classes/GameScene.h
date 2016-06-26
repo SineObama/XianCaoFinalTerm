@@ -22,13 +22,14 @@ private:
 
     static const int gap = 5;  // 板到底边的距离
     static const float plateSpeed;
-    static const float toolBaseSpeed;
+    static const float ballBaseSpeed;
+    static const float ballSpeedGrowth;
     static const float ballMaxAngle;
+    static const float toolBaseSpeed;
+    static const float toolSpeedFluctuation;
     static const float toolAverageRefreshTime;
     static const float throughDuration;
-    static const float toRad;  // 角度转弧度
-    static const float toAngle;  // 弧度转角度
-	static const int brickWidth = 70, brickHeight = 21;
+    static const int brickWidth = 71, brickHeight = 21;
 
     static const int boundBit = 1 << 0;
     static const int bottomBit = 1 << 1;
@@ -62,8 +63,8 @@ private:
     void randomCreateTools(float);
     void endThrough(float);
 
-	void scheduleDivide(float);
-    void scheduleNextLevel(float);
+    void scheduleDivide(float);
+    void checkBrick(float);
     void nextLevel();
     void win();
     void lose();

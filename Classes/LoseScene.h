@@ -7,17 +7,17 @@
 class LoseScene : public cocos2d::Layer
 {
 public:
-	static cocos2d::Scene* createScene();
+    static cocos2d::Scene* createScene();
 
-	virtual bool init();
+    virtual bool init();
 
-	// a selector callback
-	//void startMenuCallback(cocos2d::Ref* pSender);
+    // a selector callback
+    //void startMenuCallback(cocos2d::Ref* pSender);
 
-	// implement the "static create()" method manually
-	CREATE_FUNC(LoseScene);
+    // implement the "static create()" method manually
+    CREATE_FUNC(LoseScene);
 
-	void ChangeScene(Ref *);
+    void ChangeScene(Ref *);
 };
 
 #endif // __MENU_SEBCE_H__
