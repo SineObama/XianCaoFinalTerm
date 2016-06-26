@@ -98,7 +98,7 @@ bool GameScene::init()
     this->addChild(bottom);
 
     // ÉèÖÃ»¬°å
-    plate = Sprite::create("sprite/plate.png");
+    plate = Sprite::create("sprite/plate.jpg");
     plate->setName("plate");
     auto plateBody = PhysicsBody::createBox(plate->getContentSize(), elasticMaterial);
     plateBody->setDynamic(false);
